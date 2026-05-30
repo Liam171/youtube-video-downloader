@@ -1,0 +1,8 @@
+# yt-dlp 本体太大，不要上传
+yt-dlp.exe
+# 临时文件
+*.tmp
+# 用户配置文件（包含个人设置）
+config.json
+# ffmpeg（太大）
+ffmpeg.exe
