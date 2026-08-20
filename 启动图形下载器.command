@@ -10,13 +10,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_SCRIPT="$SCRIPT_DIR/yt-dlp-gui.py"
 
 # Find a Python 3 that has PySide6
-PYTHON=""
-for candidate in /usr/bin/python3 /opt/homebrew/bin/python3 /usr/local/bin/python3; do
-    if [ -x "$candidate" ] && "$candidate" -c "from PySide6.QtWidgets import QApplication" 2>/dev/null; then
-        PYTHON="$candidate"
-        break
-    fi
-done
+find_python_with_pyside() {
+    for candidate in /usr/bin/python3 /opt/homebrew/bin/python3 /usr/local/bin/python3; do
+        if [ -x "$candidate" ] && "$candidate" -c "from PySide6.QtWidgets import QApplication" 2>/dev/null; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+PYTHON="$(find_python_with_pyside || true)"
 
 if [ -z "$PYTHON" ]; then
     # PySide6 not installed — offer to install
@@ -28,12 +32,7 @@ if [ -z "$PYTHON" ]; then
         done
         "$PIP_PYTHON" -m pip install pyside6
         # re-check
-        for candidate in /usr/bin/python3 /opt/homebrew/bin/python3 /usr/local/bin/python3; do
-            if [ -x "$candidate" ] && "$candidate" -c "from PySide6.QtWidgets import QApplication" 2>/dev/null; then
-                PYTHON="$candidate"
-                break
-            fi
-        done
+        PYTHON="$(find_python_with_pyside || true)"
     else
         exit 1
     fi

@@ -1,1 +1,25 @@
+# macOS Finder metadata
+.DS_Store
+
+# Local application preferences
+/config.json
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+
+# Runtime temporary files
 .yt-*.tmp
+*.tmp
+
+# Build and release artifacts
+/dist/
+
+# Download engines are installed or bundled separately
+/yt-dlp
+/yt-dlp_macos
+/yt-dlp.exe
+/ffmpeg
+/ffmpeg_arm64
+/ffmpeg_x64
+/ffmpeg.exe
