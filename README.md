@@ -2,11 +2,15 @@
 
 A desktop GUI for [yt-dlp](https://github.com/yt-dlp/yt-dlp), with separate launchers for Windows and macOS.
 
+![App screenshot](docs/screenshot.png)
+
 ## Features
 
+- Premium dark UI — card-based layout, gradient actions, live status states
 - Paste a video URL and download with one click
 - Choose best quality, 1080p, 720p, or MP3 audio
 - See download progress, speed, and estimated time remaining
+- Engine health at a glance (yt-dlp / ffmpeg readiness in the sidebar)
 - Update the bundled download engine from the app
 - Keep downloads and app settings on the local computer
 

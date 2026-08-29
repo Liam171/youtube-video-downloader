@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 yt-dlp Video Downloader — macOS GUI (PySide6)
-A native-feeling graphical front-end for yt-dlp on macOS.
+A premium dark-themed graphical front-end for yt-dlp on macOS.
 """
 
 from __future__ import annotations
@@ -21,8 +21,8 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
     QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton,
-    QComboBox, QProgressBar, QTextEdit,
-    QFileDialog, QFrame,
+    QProgressBar, QTextEdit,
+    QFileDialog, QFrame, QButtonGroup,
 )
 from PySide6.QtCore import Qt, QObject, Signal, Slot
 from PySide6.QtGui import QFont, QTextCursor
@@ -144,48 +144,127 @@ class WorkerSignals(QObject):
 
 
 # ═══════════════════════════════════════════════════════════════════════
+#  Design tokens — deep ink surfaces with one electric-blue accent
+# ═══════════════════════════════════════════════════════════════════════
+
+BG = "#0E131B"          # window
+RAIL = "#121724"        # sidebar
+CARD = "#151B27"        # raised card surface
+FIELD = "#0F141E"       # inset inputs / chips
+BORDER = "#232B3A"      # card hairline
+BORDER_2 = "#2C3650"    # hover hairline
+TXT = "#EDF1F7"         # primary text
+TXT_2 = "#9AA6BA"       # secondary text
+TXT_3 = "#64708A"       # muted text
+ACCENT = "#4E7CFF"
+ACCENT_SOFT = "#9DB8FF"
+SUCCESS = "#3ECF8E"
+ERROR = "#F0616D"
+NEUTRAL = "#8B96A9"
+
+QSS_CARD = f"""
+    QFrame#card {{ background: {CARD}; border: 1px solid {BORDER}; border-radius: 12px; }}
+"""
+QSS_PRIMARY_BTN = """
+    QPushButton {
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+            stop:0 #5B82FF, stop:1 #3E5EF7);
+        color: #FFFFFF; border: 1px solid #4E6FF5; border-radius: 10px;
+        padding: 10px 22px;
+    }
+    QPushButton:hover {
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+            stop:0 #6E90FF, stop:1 #4A6CFA);
+    }
+    QPushButton:pressed { background: #3451D9; }
+    QPushButton:disabled { background: #1D2536; border-color: #1D2536; color: #4A5570; }
+"""
+QSS_SECONDARY_BTN = f"""
+    QPushButton {{
+        background: #1A2130; color: #C6CFDE;
+        border: 1px solid {BORDER}; border-radius: 10px;
+        padding: 10px 18px;
+    }}
+    QPushButton:hover {{ background: #202939; border-color: {BORDER_2}; color: {TXT}; }}
+    QPushButton:pressed {{ background: #171E2C; }}
+    QPushButton:disabled {{ color: #4A5570; border-color: #1D2432; background: #151B27; }}
+"""
+QSS_GHOST_BTN = f"""
+    QPushButton {{
+        background: transparent; color: {TXT_3}; border: none; border-radius: 8px;
+        padding: 7px 12px;
+    }}
+    QPushButton:hover {{ background: #182030; color: {ACCENT_SOFT}; }}
+"""
+QSS_INPUT = f"""
+    QLineEdit {{
+        background: {FIELD}; color: {TXT};
+        border: 1px solid #263043; border-radius: 10px;
+        padding: 0 14px;
+    }}
+    QLineEdit:hover {{ border-color: #33405C; }}
+    QLineEdit:focus {{ background: #111827; border: 1px solid {ACCENT}; }}
+    QLineEdit:disabled {{ color: #4A5570; border-color: #1D2432; }}
+"""
+QSS_CHIP = f"""
+    QPushButton {{
+        background: {FIELD}; color: {TXT_2};
+        border: 1px solid #263043; border-radius: 9px;
+        padding: 9px 16px;
+    }}
+    QPushButton:hover {{ border-color: #3A4763; color: #C6CFDE; }}
+    QPushButton:checked {{
+        background: rgba(78, 124, 255, 16%);
+        border-color: {ACCENT}; color: {ACCENT_SOFT};
+    }}
+    QPushButton:disabled {{ color: #3E4A63; border-color: #1D2432; }}
+    QPushButton:checked:disabled {{ color: #3E5078; border-color: #2A3A66; background: rgba(78, 124, 255, 7%); }}
+"""
+QSS_PROGRESS = f"""
+    QProgressBar {{
+        background: #1A2130; border: none; border-radius: 3px;
+    }}
+    QProgressBar::chunk {{
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+            stop:0 {ACCENT}, stop:1 #7AA5FF);
+        border-radius: 3px;
+    }}
+"""
+QSS_LOG = f"""
+    QTextEdit {{
+        background: #0A0E15; color: #7E93B4; border: none;
+        font-family: 'Menlo'; padding: 4px;
+    }}
+    QScrollBar:vertical {{ background: transparent; width: 8px; margin: 2px; }}
+    QScrollBar::handle:vertical {{ background: #2A3345; border-radius: 4px; min-height: 30px; }}
+    QScrollBar::handle:vertical:hover {{ background: #37435C; }}
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}
+"""
+
+
+def _font(size: int, weight: int = QFont.Normal, mono: bool = False) -> QFont:
+    f = QFont()
+    f.setFamilies(
+        ["Menlo", "SF Mono", "PingFang SC"] if mono
+        else ["Avenir Next", "PingFang SC", "Helvetica Neue"]
+    )
+    f.setPointSize(size)
+    f.setWeight(weight)
+    return f
+
+
+# ═══════════════════════════════════════════════════════════════════════
 #  Main Window
 # ═══════════════════════════════════════════════════════════════════════
 
 class MainWindow(QMainWindow):
-    # Stone, graphite and cobalt form the visual system. Blue is an action
-    # colour, never a large decorative surface.
-    _QSS_BTN_PRIMARY = """
-        QPushButton {
-            background-color: #356DB3; color: #FFFFFF;
-            border: 1px solid #356DB3; border-radius: 4px;
-            padding: 11px 20px;
-        }
-        QPushButton:hover { background-color: #2A5F9F; border-color: #2A5F9F; }
-        QPushButton:pressed { background-color: #214E84; border-color: #214E84; padding-top: 12px; padding-bottom: 10px; }
-        QPushButton:focus { border: 2px solid #8FB3E2; }
-        QPushButton:disabled { background-color: #B9C3CD; border-color: #B9C3CD; color: #E9EEF3; }
-    """
-    _QSS_BTN_SECONDARY = """
-        QPushButton {
-            background: transparent; color: #314256;
-            border: 1px solid #B9C5D0; border-radius: 4px;
-            padding: 10px 15px;
-        }
-        QPushButton:hover { background: #F7F9FB; border-color: #7F9FC5; color: #244F87; }
-        QPushButton:pressed { background: #E2E8EE; padding-top: 11px; padding-bottom: 9px; }
-        QPushButton:focus { border: 2px solid #8FB3E2; }
-        QPushButton:disabled { color: #97A4B0; border-color: #D2DAE2; }
-    """
-    _QSS_PROGRESS = """
-        QProgressBar {
-            background: #C6D0DA; border: none; border-radius: 2px;
-        }
-        QProgressBar::chunk {
-            background: #356DB3; border-radius: 2px;
-        }
-    """
 
     def __init__(self):
         super().__init__()
         self.setWindowTitle("视频下载器")
-        self.resize(980, 700)
-        self.setMinimumSize(800, 570)
+        self.resize(1040, 680)
+        self.setMinimumSize(880, 600)
 
         # State
         self.config = load_config()
@@ -215,318 +294,396 @@ class MainWindow(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
         central.setObjectName("central")
-        central.setStyleSheet("QWidget#central { background-color: #E9EEF2; }")
+        central.setStyleSheet(f"QWidget#central {{ background-color: {BG}; }}")
 
         root = QHBoxLayout(central)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # The rail is product identity and quiet system state, not a promo panel.
+        root.addWidget(self._build_rail())
+
+        workspace = QWidget()
+        ws = QVBoxLayout(workspace)
+        ws.setContentsMargins(36, 30, 36, 24)
+        ws.setSpacing(0)
+
+        ws.addLayout(self._build_header())
+        ws.addSpacing(22)
+        ws.addWidget(self._build_link_card())
+        ws.addSpacing(14)
+        ws.addWidget(self._build_settings_card())
+        ws.addSpacing(16)
+        ws.addLayout(self._build_action_row())
+        ws.addSpacing(18)
+        ws.addLayout(self._build_progress_card())
+        ws.addSpacing(10)
+        ws.addWidget(self._build_log_section(), stretch=1)
+
+        root.addWidget(workspace, stretch=1)
+
+    def _build_rail(self) -> QFrame:
         rail = QFrame()
         rail.setObjectName("rail")
-        rail.setMinimumWidth(268)
-        rail.setMaximumWidth(296)
-        rail.setStyleSheet("""
-            QFrame#rail {
-                background: #18212B;
-            }
-        """)
-        rail_layout = QVBoxLayout(rail)
-        rail_layout.setContentsMargins(29, 30, 28, 27)
-        rail_layout.setSpacing(0)
+        rail.setFixedWidth(264)
+        rail.setStyleSheet(f"QFrame#rail {{ background: {RAIL}; border-right: 1px solid #1A2130; }}")
+        r = QVBoxLayout(rail)
+        r.setContentsMargins(24, 26, 22, 22)
+        r.setSpacing(0)
 
-        product_mark = QLabel("MEDIA / DOWNLOAD")
-        product_mark.setFont(QFont("Menlo", 9, QFont.DemiBold))
-        product_mark.setStyleSheet("color: #86A9D1; letter-spacing: 1.2px;")
-        rail_layout.addWidget(product_mark)
+        # Brand row
+        brand = QHBoxLayout()
+        brand.setSpacing(11)
+        mark = QLabel("↓")
+        mark.setObjectName("brandMark")
+        mark.setAlignment(Qt.AlignCenter)
+        mark.setFixedSize(36, 36)
+        mark.setFont(_font(17, QFont.Bold))
+        mark.setStyleSheet(
+            "QLabel#brandMark { background: qlineargradient(x1:0, y1:0, x2:1, y2:1,"
+            " stop:0 #5B82FF, stop:1 #3E5EF7); border-radius: 10px; color: #FFFFFF; }"
+        )
+        brand.addWidget(mark)
+        name_col = QVBoxLayout()
+        name_col.setSpacing(1)
+        name = QLabel("视频下载器")
+        name.setFont(_font(15, QFont.DemiBold))
+        name.setStyleSheet(f"color: {TXT}; background: transparent;")
+        name_col.addWidget(name)
+        sub = QLabel("MEDIA DOWNLOADER")
+        sub.setFont(_font(8.5, QFont.DemiBold, mono=True))
+        sub.setStyleSheet(f"color: {TXT_3}; letter-spacing: 1.5px; background: transparent;")
+        name_col.addWidget(sub)
+        brand.addLayout(name_col)
+        r.addLayout(brand)
 
-        rail_layout.addSpacing(25)
-        rail_accent = QFrame()
-        rail_accent.setFixedSize(42, 3)
-        rail_accent.setStyleSheet("background: #356DB3;")
-        rail_layout.addWidget(rail_accent)
-        rail_layout.addSpacing(18)
-        rail_title = QLabel("视频\n下载器")
-        rail_title.setFont(QFont("Avenir Next", 29, QFont.DemiBold))
-        rail_title.setStyleSheet("color: #F5F7FA; line-height: 1.08;")
-        rail_layout.addWidget(rail_title)
-        rail_layout.addSpacing(12)
-        rail_copy = QLabel("专注处理链接、格式与文件。\n所有下载记录都保留在这台 Mac。")
-        rail_copy.setFont(QFont("Avenir Next", 11))
-        rail_copy.setStyleSheet("color: #ABBAC9; line-height: 1.5;")
-        rail_layout.addWidget(rail_copy)
+        r.addSpacing(28)
 
-        rail_layout.addStretch()
-        rail_rule = QFrame()
-        rail_rule.setFixedHeight(1)
-        rail_rule.setStyleSheet("background: #3B4856;")
-        rail_layout.addWidget(rail_rule)
-        rail_layout.addSpacing(16)
-        rail_status_caption = QLabel("下载状态")
-        rail_status_caption.setFont(QFont("Avenir Next", 10, QFont.DemiBold))
-        rail_status_caption.setStyleSheet("color: #8091A2;")
-        rail_layout.addWidget(rail_status_caption)
-        rail_layout.addSpacing(6)
-        self.status_badge = QLabel("已就绪")
-        self.status_badge.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self.status_badge.setFixedHeight(28)
-        self.status_badge.setFont(QFont("Avenir Next", 12, QFont.DemiBold))
-        rail_layout.addWidget(self.status_badge)
-        rail_layout.addSpacing(14)
-        rail_footer = QLabel("MACOS  ·  LOCAL-FIRST")
-        rail_footer.setFont(QFont("Menlo", 9))
-        rail_footer.setStyleSheet("color: #6F8499;")
-        rail_layout.addWidget(rail_footer)
-        root.addWidget(rail)
+        # Engine section
+        caption = QLabel("引擎状态")
+        caption.setFont(_font(10, QFont.DemiBold))
+        caption.setStyleSheet(f"color: {TXT_3}; letter-spacing: 1px; background: transparent;")
+        r.addWidget(caption)
+        r.addSpacing(10)
 
-        workspace = QFrame()
-        workspace.setObjectName("workspace")
-        workspace.setStyleSheet("""
-            QFrame#workspace {
-                background: #E9EEF2;
-            }
-        """)
-        workspace_layout = QVBoxLayout(workspace)
-        workspace_layout.setContentsMargins(44, 33, 48, 27)
-        workspace_layout.setSpacing(0)
+        engine_card = QFrame()
+        engine_card.setObjectName("card")
+        engine_card.setStyleSheet(QSS_CARD)
+        ec = QVBoxLayout(engine_card)
+        ec.setContentsMargins(14, 12, 14, 12)
+        ec.setSpacing(9)
 
-        workspace_header = QHBoxLayout()
-        header_copy = QVBoxLayout()
-        header_copy.setSpacing(4)
-        eyebrow = QLabel("视频下载")
-        eyebrow.setFont(QFont("Avenir Next", 10, QFont.DemiBold))
-        eyebrow.setStyleSheet("color: #547397;")
-        header_copy.addWidget(eyebrow)
+        self.engine_ytdlp_row = self._engine_row("yt-dlp")
+        ec.addLayout(self.engine_ytdlp_row)
+        divider = QFrame()
+        divider.setFixedHeight(1)
+        divider.setStyleSheet("background: #1D2432;")
+        ec.addWidget(divider)
+        self.engine_ffmpeg_row = self._engine_row("ffmpeg")
+        ec.addLayout(self.engine_ffmpeg_row)
+        r.addWidget(engine_card)
+
+        r.addStretch()
+
+        # Footer
+        rule = QFrame()
+        rule.setFixedHeight(1)
+        rule.setStyleSheet("background: #1D2432;")
+        r.addWidget(rule)
+        r.addSpacing(12)
+        footer = QLabel("macOS · LOCAL-FIRST · v2.0")
+        footer.setFont(_font(9, QFont.Normal, mono=True))
+        footer.setStyleSheet(f"color: #4A5670; letter-spacing: 0.5px; background: transparent;")
+        r.addWidget(footer)
+        return rail
+
+    def _engine_row(self, name: str) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        dot = QLabel()
+        dot.setFixedSize(7, 7)
+        dot.setStyleSheet(f"background: {NEUTRAL}; border-radius: 3px;")
+        row.addWidget(dot)
+        label = QLabel(name)
+        label.setFont(_font(11.5, QFont.Medium, mono=True))
+        label.setStyleSheet(f"color: {TXT_2}; background: transparent;")
+        row.addWidget(label)
+        row.addStretch()
+        state = QLabel("检测中")
+        state.setObjectName(f"engineState_{name}")
+        state.setFont(_font(10.5, QFont.Medium))
+        state.setStyleSheet(f"color: {TXT_3}; background: transparent;")
+        row.addWidget(state)
+        # keep references for later updates
+        if name == "yt-dlp":
+            self._ytdlp_dot, self._ytdlp_state = dot, state
+        else:
+            self._ffmpeg_dot, self._ffmpeg_state = dot, state
+        return row
+
+    def _build_header(self) -> QHBoxLayout:
+        header = QHBoxLayout()
+        col = QVBoxLayout()
+        col.setSpacing(3)
         title = QLabel("新建下载")
-        title.setFont(QFont("Avenir Next", 27, QFont.DemiBold))
-        title.setStyleSheet("color: #162434;")
-        header_copy.addWidget(title)
-        workspace_header.addLayout(header_copy)
-        workspace_header.addStretch()
-        engine_label = QLabel("YT-DLP · LOCAL ENGINE")
-        engine_label.setFont(QFont("Menlo", 9))
-        engine_label.setStyleSheet("color: #66788B; padding: 5px 0;")
-        workspace_header.addWidget(engine_label, alignment=Qt.AlignTop | Qt.AlignRight)
-        workspace_layout.addLayout(workspace_header)
-        workspace_layout.addSpacing(32)
+        title.setFont(_font(25, QFont.DemiBold))
+        title.setStyleSheet(f"color: {TXT}; background: transparent;")
+        col.addWidget(title)
+        subtitle = QLabel("粘贴链接，选择画质，一键下载到本地。")
+        subtitle.setFont(_font(12))
+        subtitle.setStyleSheet(f"color: {TXT_3}; background: transparent;")
+        col.addWidget(subtitle)
+        header.addLayout(col)
+        header.addStretch()
 
-        form_panel = QFrame()
-        form_panel.setObjectName("formPanel")
-        form_panel.setStyleSheet("""
-            QFrame#formPanel {
-                background: transparent; border: none;
-            }
-        """)
-        composer_layout = QVBoxLayout(form_panel)
-        composer_layout.setContentsMargins(0, 0, 0, 0)
-        composer_layout.setSpacing(12)
+        self.header_pill = QLabel("已就绪")
+        self.header_pill.setAlignment(Qt.AlignCenter)
+        self.header_pill.setFixedHeight(26)
+        self.header_pill.setFont(_font(11, QFont.DemiBold))
+        self._update_pill(NEUTRAL, "rgba(139, 150, 169, 10%)", "已就绪")
+        header.addWidget(self.header_pill, alignment=Qt.AlignTop)
+        return header
 
-        link_heading = QHBoxLayout()
-        link_heading.addWidget(self._make_label("视频链接"))
-        link_heading.addStretch()
-        link_hint = QLabel("支持 YouTube 及 yt-dlp 兼容网站")
-        link_hint.setFont(QFont("Avenir Next", 10))
-        link_hint.setStyleSheet("color: #798898;")
-        link_heading.addWidget(link_hint)
-        composer_layout.addLayout(link_heading)
-        url_row = QHBoxLayout()
-        url_row.setSpacing(9)
+    def _build_link_card(self) -> QFrame:
+        card = QFrame()
+        card.setObjectName("card")
+        card.setStyleSheet(QSS_CARD)
+        c = QVBoxLayout(card)
+        c.setContentsMargins(18, 16, 18, 16)
+        c.setSpacing(12)
+
+        label_row = QHBoxLayout()
+        lbl = QLabel("视频链接")
+        lbl.setFont(_font(12.5, QFont.DemiBold))
+        lbl.setStyleSheet(f"color: #C6CFDE; background: transparent;")
+        label_row.addWidget(lbl)
+        label_row.addStretch()
+        hint = QLabel("支持 YouTube 及数千个 yt-dlp 兼容站点")
+        hint.setFont(_font(10.5))
+        hint.setStyleSheet(f"color: {TXT_3}; background: transparent;")
+        label_row.addWidget(hint)
+        c.addLayout(label_row)
+
+        row = QHBoxLayout()
+        row.setSpacing(10)
         self.url_edit = QLineEdit()
-        self.url_edit.setPlaceholderText("粘贴视频链接")
-        self._style_input(self.url_edit, large=True)
+        self.url_edit.setPlaceholderText("https://www.youtube.com/watch?v=…")
+        self.url_edit.setFixedHeight(44)
+        self.url_edit.setFont(_font(13.5, QFont.Medium))
+        self.url_edit.setStyleSheet(QSS_INPUT)
         self.url_edit.returnPressed.connect(self.start_download)
-        url_row.addWidget(self.url_edit, stretch=1)
-        self.paste_btn = self._make_button("粘贴", primary=False)
-        self.paste_btn.setFixedWidth(74)
+        row.addWidget(self.url_edit, stretch=1)
+        self.paste_btn = self._make_button("粘贴", "ghost")
+        self.paste_btn.setFixedSize(64, 44)
         self.paste_btn.clicked.connect(self._paste_url)
-        url_row.addWidget(self.paste_btn)
-        composer_layout.addLayout(url_row)
+        row.addWidget(self.paste_btn)
+        c.addLayout(row)
 
         self.feedback_label = QLabel("")
         self.feedback_label.setWordWrap(True)
         self.feedback_label.setVisible(False)
-        composer_layout.addWidget(self.feedback_label)
-        composer_layout.addSpacing(10)
-        settings_rule = QFrame()
-        settings_rule.setFixedHeight(1)
-        settings_rule.setStyleSheet("background: #C9D2DB;")
-        composer_layout.addWidget(settings_rule)
-        composer_layout.addSpacing(6)
+        c.addWidget(self.feedback_label)
+        return card
 
-        settings_row = QVBoxLayout()
-        settings_row.setSpacing(12)
+    def _build_settings_card(self) -> QFrame:
+        card = QFrame()
+        card.setObjectName("card")
+        card.setStyleSheet(QSS_CARD)
+        c = QHBoxLayout(card)
+        c.setContentsMargins(18, 16, 18, 16)
+        c.setSpacing(20)
 
-        format_col = QVBoxLayout()
-        format_col.setSpacing(6)
-        format_col.addWidget(self._make_label("下载格式"))
-        self.format_combo = QComboBox()
-        self.format_combo.addItems([
-            "最佳质量 · MP4", "最高 1080p · MP4", "最高 720p · MP4", "仅音频 · MP3"
-        ])
-        self.format_combo.setFont(QFont("Avenir Next", 12, QFont.Medium))
-        self.format_combo.setMinimumWidth(250)
-        self.format_combo.setStyleSheet("""
-            QComboBox {
-                background: #F8FAFB; color: #263442; border: 1px solid #BBC7D1;
-                border-radius: 4px; padding: 10px 34px 10px 12px;
-            }
-            QComboBox:hover { background: #FFFFFF; border-color: #829FBE; }
-            QComboBox:focus { background: #FFFFFF; border: 2px solid #7EA7D8; }
-            QComboBox::drop-down { border: none; width: 30px; }
-        """)
-        format_col.addWidget(self.format_combo)
-        settings_row.addLayout(format_col)
+        # Format column
+        fmt_col = QVBoxLayout()
+        fmt_col.setSpacing(10)
+        fmt_lbl = QLabel("画质")
+        fmt_lbl.setFont(_font(12.5, QFont.DemiBold))
+        fmt_lbl.setStyleSheet("color: #C6CFDE; background: transparent;")
+        fmt_col.addWidget(fmt_lbl)
+        chip_row = QHBoxLayout()
+        chip_row.setSpacing(8)
+        self.format_group = QButtonGroup(self)
+        self.format_group.setExclusive(True)
+        self.format_buttons: list[QPushButton] = []
+        for i, label in enumerate(["最佳质量", "1080p", "720p", "仅音频 MP3"]):
+            btn = QPushButton(label)
+            btn.setCheckable(True)
+            btn.setFont(_font(12, QFont.Medium))
+            btn.setStyleSheet(QSS_CHIP)
+            btn.setCursor(Qt.PointingHandCursor)
+            self.format_group.addButton(btn, i)
+            self.format_buttons.append(btn)
+            chip_row.addWidget(btn)
+        self.format_buttons[0].setChecked(True)
+        fmt_col.addLayout(chip_row)
+        fmt_col.addStretch()
+        c.addLayout(fmt_col, stretch=3)
 
+        # Vertical divider
+        divider = QFrame()
+        divider.setFixedWidth(1)
+        divider.setStyleSheet("background: #1D2432;")
+        c.addWidget(divider)
+
+        # Path column
         path_col = QVBoxLayout()
-        path_col.setSpacing(6)
-        path_col.addWidget(self._make_label("保存位置"))
+        path_col.setSpacing(10)
+        path_lbl = QLabel("保存位置")
+        path_lbl.setFont(_font(12.5, QFont.DemiBold))
+        path_lbl.setStyleSheet("color: #C6CFDE; background: transparent;")
+        path_col.addWidget(path_lbl)
         path_row = QHBoxLayout()
         path_row.setSpacing(8)
         self.path_edit = QLineEdit()
         self.path_edit.setPlaceholderText("选择文件夹")
-        self._style_input(self.path_edit)
+        self.path_edit.setFixedHeight(38)
+        self.path_edit.setFont(_font(12))
+        self.path_edit.setStyleSheet(QSS_INPUT)
         path_row.addWidget(self.path_edit, stretch=1)
-        self.browse_btn = self._make_button("选择…", primary=False)
+        self.browse_btn = self._make_button("浏览…", "secondary")
+        self.browse_btn.setFixedSize(78, 38)
         self.browse_btn.clicked.connect(self._browse_folder)
         path_row.addWidget(self.browse_btn)
         path_col.addLayout(path_row)
-        settings_row.addLayout(path_col)
-        composer_layout.addLayout(settings_row)
+        path_col.addStretch()
+        c.addLayout(path_col, stretch=4)
+        return card
 
-        action_row = QHBoxLayout()
-        action_row.setSpacing(9)
-        self.start_btn = self._make_button("开始下载", primary=True, bold=True)
-        self.start_btn.setMinimumWidth(130)
+    def _build_action_row(self) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setSpacing(10)
+        self.start_btn = self._make_button("开始下载", "primary")
+        self.start_btn.setFixedHeight(42)
+        self.start_btn.setMinimumWidth(150)
+        self.start_btn.setFont(_font(13.5, QFont.DemiBold))
         self.start_btn.clicked.connect(self.start_download)
-        action_row.addWidget(self.start_btn)
-        self.stop_btn = self._make_button("停止", primary=False)
+        row.addWidget(self.start_btn)
+        self.stop_btn = self._make_button("停止", "secondary")
+        self.stop_btn.setFixedHeight(42)
         self.stop_btn.setEnabled(False)
         self.stop_btn.clicked.connect(self.stop_download)
-        action_row.addWidget(self.stop_btn)
-        action_row.addStretch()
-        self.update_btn = self._make_button("更新下载引擎", primary=False)
+        row.addWidget(self.stop_btn)
+        row.addStretch()
+        self.update_btn = self._make_button("更新下载引擎", "ghost")
+        self.update_btn.setFixedHeight(36)
         self.update_btn.clicked.connect(self.update_ytdlp)
-        action_row.addWidget(self.update_btn)
-        composer_layout.addLayout(action_row)
-        workspace_layout.addWidget(form_panel)
-        workspace_layout.addSpacing(38)
+        row.addWidget(self.update_btn)
+        return row
 
-        activity = QWidget()
-        activity_layout = QVBoxLayout(activity)
-        activity_layout.setContentsMargins(0, 0, 0, 0)
-        activity_layout.setSpacing(10)
+    def _build_progress_card(self) -> QHBoxLayout:
+        wrap = QHBoxLayout()
+        wrap.setSpacing(0)
+        card = QFrame()
+        card.setObjectName("card")
+        card.setStyleSheet(QSS_CARD)
+        c = QVBoxLayout(card)
+        c.setContentsMargins(18, 16, 18, 16)
+        c.setSpacing(12)
 
-        activity_caption = QLabel("下载进度")
-        activity_caption.setFont(QFont("Avenir Next", 10, QFont.DemiBold))
-        activity_caption.setStyleSheet("color: #547397;")
-        activity_layout.addWidget(activity_caption)
-
-        activity_top = QHBoxLayout()
-        activity_top.setSpacing(10)
+        top = QHBoxLayout()
+        top.setSpacing(10)
         self.status_dot = QLabel()
         self.status_dot.setFixedSize(8, 8)
-        activity_top.addWidget(self.status_dot)
+        self.status_dot.setStyleSheet(f"background: {SUCCESS}; border-radius: 4px;")
+        top.addWidget(self.status_dot)
         self.status_label = QLabel("准备就绪")
-        self.status_label.setFont(QFont("Avenir Next", 14, QFont.DemiBold))
-        self.status_label.setStyleSheet("color: #223247;")
-        activity_top.addWidget(self.status_label)
-        activity_top.addStretch()
+        self.status_label.setFont(_font(14, QFont.DemiBold))
+        self.status_label.setStyleSheet(f"color: {TXT}; background: transparent;")
+        top.addWidget(self.status_label)
+        top.addStretch()
         self.progress_value_label = QLabel("0%")
-        self.progress_value_label.setFont(QFont("Menlo", 12, QFont.DemiBold))
-        self.progress_value_label.setStyleSheet("color: #456B98;")
-        activity_top.addWidget(self.progress_value_label)
-        activity_layout.addLayout(activity_top)
+        self.progress_value_label.setFont(_font(20, QFont.DemiBold, mono=True))
+        self.progress_value_label.setStyleSheet(f"color: {ACCENT_SOFT}; background: transparent;")
+        top.addWidget(self.progress_value_label)
+        c.addLayout(top)
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
         self.progress_bar.setTextVisible(False)
-        self.progress_bar.setFixedHeight(4)
-        self.progress_bar.setStyleSheet(self._QSS_PROGRESS)
-        activity_layout.addWidget(self.progress_bar)
+        self.progress_bar.setFixedHeight(6)
+        self.progress_bar.setStyleSheet(QSS_PROGRESS)
+        c.addWidget(self.progress_bar)
 
         self.speed_label = QLabel("粘贴一个链接后，即可开始下载。")
-        self.speed_label.setFont(QFont("Avenir Next", 12))
-        self.speed_label.setStyleSheet("color: #697A8D;")
-        activity_layout.addWidget(self.speed_label)
-        workspace_layout.addWidget(activity)
-        workspace_layout.addStretch()
+        self.speed_label.setFont(_font(11))
+        self.speed_label.setStyleSheet(f"color: {TXT_3}; background: transparent;")
+        c.addWidget(self.speed_label)
+
+        wrap.addWidget(card)
+        return wrap
+
+    def _build_log_section(self) -> QWidget:
+        holder = QWidget()
+        v = QVBoxLayout(holder)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(8)
 
         self.log_toggle_btn = QPushButton("查看运行记录")
         self.log_toggle_btn.setCursor(Qt.PointingHandCursor)
-        self.log_toggle_btn.setFont(QFont("Avenir Next", 11, QFont.Medium))
-        self.log_toggle_btn.setStyleSheet("""
-            QPushButton { color: #5B718A; background: transparent; border: none; text-align: left; padding: 7px 0; }
-            QPushButton:hover { color: #356DB3; }
-            QPushButton:focus { color: #356DB3; }
-        """)
+        self.log_toggle_btn.setFont(_font(11.5, QFont.Medium))
+        self.log_toggle_btn.setStyleSheet(QSS_GHOST_BTN)
         self.log_toggle_btn.clicked.connect(self._toggle_log_view)
-        workspace_layout.addWidget(self.log_toggle_btn)
+        v.addWidget(self.log_toggle_btn, alignment=Qt.AlignLeft)
 
         self.log_panel = QFrame()
         self.log_panel.setObjectName("logPanel")
-        self.log_panel.setStyleSheet("QFrame#logPanel { background: #1C2733; border: none; }")
+        self.log_panel.setStyleSheet(
+            "QFrame#logPanel { background: #0A0E15; border: 1px solid #1D2432; border-radius: 10px; }"
+        )
         log_layout = QVBoxLayout(self.log_panel)
-        log_layout.setContentsMargins(14, 12, 14, 12)
+        log_layout.setContentsMargins(12, 10, 12, 10)
         self.log_view = QTextEdit()
         self.log_view.setReadOnly(True)
-        self.log_view.setMinimumHeight(130)
-        self.log_view.setMaximumHeight(170)
-        self.log_view.setFont(QFont("Menlo", 11))
-        self.log_view.setStyleSheet("QTextEdit { background: transparent; color: #C7D4E1; border: none; padding: 3px; }")
+        self.log_view.setFont(_font(10.5, mono=True))
+        self.log_view.setStyleSheet(QSS_LOG)
         log_layout.addWidget(self.log_view)
         self.log_panel.setVisible(False)
-        workspace_layout.addWidget(self.log_panel)
-
-        self._set_status("准备就绪", "粘贴一个链接后，即可开始下载。", "ready")
-        root.addWidget(workspace, stretch=1)
+        v.addWidget(self.log_panel)
+        return holder
 
     # ── Helpers ──────────────────────────────────────────────────────
     @staticmethod
-    def _make_label(text: str) -> QLabel:
-        lbl = QLabel(text)
-        lbl.setFont(QFont("Avenir Next", 12, QFont.DemiBold))
-        lbl.setStyleSheet("color: #26394F; background: transparent;")
-        return lbl
-
-    @classmethod
-    def _make_button(cls, text: str, primary: bool, bold: bool = False) -> QPushButton:
+    def _make_button(text: str, kind: str = "secondary") -> QPushButton:
         btn = QPushButton(text)
-        btn.setFont(QFont("Avenir Next", 13, QFont.DemiBold if bold else QFont.Medium))
         btn.setCursor(Qt.PointingHandCursor)
-        btn.setStyleSheet(cls._QSS_BTN_PRIMARY if primary else cls._QSS_BTN_SECONDARY)
+        if kind == "primary":
+            btn.setStyleSheet(QSS_PRIMARY_BTN)
+        elif kind == "ghost":
+            btn.setStyleSheet(QSS_GHOST_BTN)
+        else:
+            btn.setStyleSheet(QSS_SECONDARY_BTN)
         return btn
 
-    @staticmethod
-    def _style_input(w: QLineEdit, large: bool = False):
-        w.setFont(QFont("Avenir Next", 15 if large else 13,
-                        QFont.Medium if large else QFont.Normal))
-        w.setStyleSheet("""
-            QLineEdit {
-                background: #F8FAFB; color: #263442;
-                border: 1px solid #BBC7D1; border-radius: 4px;
-                padding: 10px 12px;
-            }
-            QLineEdit:hover { background: #FFFFFF; border-color: #829FBE; }
-            QLineEdit:focus { background: #FFFFFF; border: 2px solid #7EA7D8; }
-        """)
+    def _update_pill(self, color: str, bg_tint: str, text: str):
+        self.header_pill.setText(text)
+        self.header_pill.setStyleSheet(
+            f"color: {color}; background: {bg_tint};"
+            f"border: 1px solid {color}44; border-radius: 13px; padding: 0 12px;"
+        )
+
+    def _set_engine_row(self, dot_lbl: QLabel, state_lbl: QLabel, ok: bool):
+        if ok:
+            dot_lbl.setStyleSheet(f"background: {SUCCESS}; border-radius: 3px;")
+            state_lbl.setText("就绪")
+            state_lbl.setStyleSheet(f"color: {SUCCESS}; background: transparent;")
+        else:
+            dot_lbl.setStyleSheet(f"background: {ERROR}; border-radius: 3px;")
+            state_lbl.setText("未检测到")
+            state_lbl.setStyleSheet(f"color: {ERROR}; background: transparent;")
 
     def _set_status(self, title: str, detail: str = "", tone: str = "ready"):
         tones = {
-            "ready": ("#356DB3", "#91B4DF", "已就绪"),
-            "working": ("#356DB3", "#A9C6E9", "处理中"),
-            "success": ("#4C8A67", "#A6CDB4", "已完成"),
-            "error": ("#B85C69", "#E4B0B8", "需处理"),
-            "stopped": ("#748291", "#B6C1CC", "已停止"),
+            "ready":   (SUCCESS,  "rgba(62, 207, 142, 10%)",  "已就绪"),
+            "working": (ACCENT,   "rgba(78, 124, 255, 12%)",   "下载中"),
+            "success": (SUCCESS,  "rgba(62, 207, 142, 10%)",   "已完成"),
+            "error":   (ERROR,    "rgba(240, 97, 109, 10%)",   "需处理"),
+            "stopped": (NEUTRAL,  "rgba(139, 150, 169, 10%)",  "已停止"),
         }
-        dot, badge_fg, badge_text = tones.get(tone, tones["ready"])
+        dot, tint, pill_text = tones.get(tone, tones["ready"])
         self.status_label.setText(title)
         self.speed_label.setText(detail)
         self.status_dot.setStyleSheet(f"background: {dot}; border-radius: 4px;")
-        self.status_badge.setText(badge_text)
-        self.status_badge.setStyleSheet(
-            f"background: transparent; color: {badge_fg}; padding: 0;"
-        )
+        self._update_pill(dot, tint, pill_text)
 
     def _set_feedback(self, text: str = "", tone: str = "error"):
         if not text:
@@ -534,13 +691,14 @@ class MainWindow(QMainWindow):
             self.feedback_label.setVisible(False)
             return
         colors = {
-            "error": ("#F1E0E3", "#823844"),
-            "info": ("#DFEAF5", "#244F87"),
+            "error": ("rgba(240, 97, 109, 10%)", "#F28B93", ERROR),
+            "info":  ("rgba(78, 124, 255, 10%)", ACCENT_SOFT, ACCENT),
         }
-        background, foreground = colors.get(tone, colors["error"])
+        background, foreground, edge = colors.get(tone, colors["error"])
         self.feedback_label.setText(text)
         self.feedback_label.setStyleSheet(
-            f"background: {background}; color: {foreground}; border-left: 3px solid {foreground}; padding: 8px 10px;"
+            f"background: {background}; color: {foreground};"
+            f"border-left: 3px solid {edge}; border-radius: 6px; padding: 9px 12px;"
         )
         self.feedback_label.setVisible(True)
 
@@ -558,10 +716,17 @@ class MainWindow(QMainWindow):
         else:
             self._set_feedback("剪贴板里没有可用的视频链接。", "info")
 
+    def _current_format_index(self) -> int:
+        return max(0, self.format_group.checkedId())
+
     # ── Initialization ───────────────────────────────────────────────
     def _load_initial_state(self):
-        self.format_combo.setCurrentIndex(self.config.get("lastFormat", 0))
+        idx = self.config.get("lastFormat", 0)
+        if 0 <= idx < len(self.format_buttons):
+            self.format_buttons[idx].setChecked(True)
         self.path_edit.setText(self.config.get("lastSavePath", os.path.expanduser("~/Downloads")))
+        self._set_engine_row(self._ytdlp_dot, self._ytdlp_state, bool(YTDLP_PATH))
+        self._set_engine_row(self._ffmpeg_dot, self._ffmpeg_state, bool(FFMPEG_PATH))
         if not YTDLP_PATH:
             self.start_btn.setEnabled(False)
             self.update_btn.setEnabled(False)
@@ -640,7 +805,7 @@ class MainWindow(QMainWindow):
             self._append_log("下载完成。")
         else:
             self._set_status("下载未完成", f"进程退出代码：{exit_code}。可展开详细日志查看原因。", "error")
-            self._set_feedback("下载未完成。请确认链接有效，或在“详细日志”中查看具体原因。")
+            self._set_feedback("下载未完成。请确认链接有效，或在“运行记录”中查看具体原因。")
             self._append_log(f"下载失败，退出代码：{exit_code}")
 
     @Slot(int)
@@ -662,7 +827,8 @@ class MainWindow(QMainWindow):
             self.start_btn.setEnabled(False)
             self.stop_btn.setEnabled(True)
             self.update_btn.setEnabled(False)
-            self.format_combo.setEnabled(False)
+            for b in self.format_buttons:
+                b.setEnabled(False)
             self.url_edit.setEnabled(False)
             self.path_edit.setEnabled(False)
             self.paste_btn.setEnabled(False)
@@ -671,7 +837,8 @@ class MainWindow(QMainWindow):
             self.start_btn.setEnabled(bool(YTDLP_PATH))
             self.stop_btn.setEnabled(False)
             self.update_btn.setEnabled(bool(YTDLP_PATH))
-            self.format_combo.setEnabled(True)
+            for b in self.format_buttons:
+                b.setEnabled(True)
             self.url_edit.setEnabled(True)
             self.path_edit.setEnabled(True)
             self.paste_btn.setEnabled(True)
@@ -740,7 +907,7 @@ class MainWindow(QMainWindow):
     def start_download(self):
         url = self.url_edit.text().strip()
         save_path = self.path_edit.text().strip()
-        fmt_index = self.format_combo.currentIndex()
+        fmt_index = self._current_format_index()
 
         if not url:
             self._set_feedback("请输入视频链接。")
@@ -805,7 +972,7 @@ class MainWindow(QMainWindow):
             )
         except Exception as e:
             self._set_ui_running(False)
-            self._set_feedback("无法启动下载进程。请展开详细日志查看原因。")
+            self._set_feedback("无法启动下载进程。请展开运行记录查看原因。")
             self._set_status("无法开始下载", "下载进程没有成功启动。", "error")
             self._append_log(f"错误：{e}")
             return
@@ -911,8 +1078,10 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")  # clean cross-platform look, better than macOS Aqua for this purpose
 
-    # Global font fallback
-    font = QFont("Avenir Next", 13)
+    # Global font fallback (Avenir Next for Latin, PingFang SC for Chinese)
+    font = QFont()
+    font.setFamilies(["Avenir Next", "PingFang SC", "Helvetica Neue"])
+    font.setPointSize(13)
     app.setFont(font)
 
     window = MainWindow()
