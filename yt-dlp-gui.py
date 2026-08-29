@@ -31,10 +31,25 @@ from PySide6.QtGui import QFont, QTextCursor
 #  Paths & Helpers
 # ═══════════════════════════════════════════════════════════════════════
 
+# When frozen into a .app (PyInstaller), resources live in the bundle and
+# writable state (config, temp logs) must go to Application Support —
+# the .app itself may sit in read-only /Applications.
+if getattr(sys, "frozen", False):
+    BUNDLE_DIR = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+    APP_SUPPORT = os.path.join(
+        os.path.expanduser("~/Library/Application Support"), "YouTubeDownloader"
+    )
+    os.makedirs(APP_SUPPORT, exist_ok=True)
+else:
+    BUNDLE_DIR = os.path.dirname(os.path.abspath(__file__))
+    APP_SUPPORT = BUNDLE_DIR
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = os.path.join(SCRIPT_DIR, "config.json")
+CONFIG_PATH = os.path.join(APP_SUPPORT, "config.json")
 
 YTDLP_CANDIDATES = [
+    os.path.join(BUNDLE_DIR, "yt-dlp"),
+    os.path.join(BUNDLE_DIR, "yt-dlp_macos"),
     os.path.join(SCRIPT_DIR, "yt-dlp"),
     os.path.join(SCRIPT_DIR, "yt-dlp_macos"),
     "/usr/local/bin/yt-dlp",
@@ -43,11 +58,13 @@ YTDLP_CANDIDATES = [
 # Bundled ffmpeg is arch-specific (ffmpeg_arm64 / ffmpeg_x64);
 # also accept a plain "ffmpeg" next to the script and Homebrew installs.
 _BUNDLED_FFMPEG = os.path.join(
-    SCRIPT_DIR, "ffmpeg_arm64" if platform.machine() == "arm64" else "ffmpeg_x64"
+    BUNDLE_DIR, "ffmpeg_arm64" if platform.machine() == "arm64" else "ffmpeg_x64"
 )
 FFMPEG_CANDIDATES = [
     _BUNDLED_FFMPEG,
+    os.path.join(BUNDLE_DIR, "ffmpeg"),
     os.path.join(SCRIPT_DIR, "ffmpeg"),
+    os.path.join(SCRIPT_DIR, "ffmpeg_arm64" if platform.machine() == "arm64" else "ffmpeg_x64"),
     "/usr/local/bin/ffmpeg",
     "/opt/homebrew/bin/ffmpeg",
 ]
@@ -954,8 +971,8 @@ class MainWindow(QMainWindow):
         args = build_args(url, save_path, fmt_index)
         self._append_log(f"Cmd: yt-dlp {' '.join(args)}")
 
-        self.out_file = os.path.join(SCRIPT_DIR, ".yt-out.tmp")
-        self.err_file = os.path.join(SCRIPT_DIR, ".yt-err.tmp")
+        self.out_file = os.path.join(APP_SUPPORT, ".yt-out.tmp")
+        self.err_file = os.path.join(APP_SUPPORT, ".yt-err.tmp")
         for f in [self.out_file, self.err_file]:
             try:
                 os.remove(f)

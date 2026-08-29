@@ -40,6 +40,17 @@ A desktop GUI for [yt-dlp](https://github.com/yt-dlp/yt-dlp), with separate laun
 - Download engines, Python caches, temporary files, and `dist/` release artifacts are ignored.
 - Use GitHub Releases for packaged application downloads instead of committing large binaries.
 
+## Packaging (macOS)
+
+Build a standalone `YouTube视频下载器.app` that bundles the Python runtime, yt-dlp and ffmpeg — nothing needs to be installed on the target Mac (Apple Silicon):
+
+```bash
+python3 -m pip install pyside6 pyinstaller
+./build_app.sh            # arm64; pass `x64` for an Intel build
+```
+
+Ship the zipped `.app` together with `打开方法.txt`, which walks the recipient through the first-launch Gatekeeper prompt.
+
 ## License
 
 MIT

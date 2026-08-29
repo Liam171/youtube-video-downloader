@@ -23,3 +23,10 @@ __pycache__/
 /ffmpeg_arm64
 /ffmpeg_x64
 /ffmpeg.exe
+
+# PyInstaller working directory and generated spec
+/build/
+*.spec
+
+# Packaged distribution zips
+/*.zip
