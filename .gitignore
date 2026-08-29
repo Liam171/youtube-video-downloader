@@ -23,6 +23,10 @@ __pycache__/
 /ffmpeg_arm64
 /ffmpeg_x64
 /ffmpeg.exe
+/engines/
+
+# Packaged releases (built .app and zips) live here, never in Git
+/release/
 
 # PyInstaller working directory and generated spec
 /build/

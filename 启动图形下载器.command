@@ -40,7 +40,7 @@ fi
 
 # Check/install yt-dlp if needed
 YTDLP_FOUND=false
-for candidate in "$SCRIPT_DIR/yt-dlp" "$SCRIPT_DIR/yt-dlp_macos" "/usr/local/bin/yt-dlp" "/opt/homebrew/bin/yt-dlp"; do
+for candidate in "$SCRIPT_DIR/engines/yt-dlp" "$SCRIPT_DIR/engines/yt-dlp_macos" "$SCRIPT_DIR/yt-dlp" "$SCRIPT_DIR/yt-dlp_macos" "/usr/local/bin/yt-dlp" "/opt/homebrew/bin/yt-dlp"; do
     if [ -x "$candidate" ]; then
         YTDLP_FOUND=true
         break

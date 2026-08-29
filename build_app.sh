@@ -20,8 +20,8 @@ pyinstaller --noconfirm --windowed \
   --name "$APP_NAME" \
   --icon appicon.icns \
   --osx-bundle-identifier com.liam171.ytdlpdownloader \
-  --add-binary "yt-dlp_macos:." \
-  --add-binary "$FFMPEG:." \
+  --add-binary "engines/yt-dlp_macos:." \
+  --add-binary "engines/$FFMPEG:." \
   --workpath "build/pyi-$ARCH" \
   --distpath "dist" \
   yt-dlp-gui.py

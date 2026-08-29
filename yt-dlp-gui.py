@@ -52,6 +52,8 @@ YTDLP_CANDIDATES = [
     os.path.join(BUNDLE_DIR, "yt-dlp_macos"),
     os.path.join(SCRIPT_DIR, "yt-dlp"),
     os.path.join(SCRIPT_DIR, "yt-dlp_macos"),
+    os.path.join(SCRIPT_DIR, "engines", "yt-dlp_macos"),
+    os.path.join(SCRIPT_DIR, "engines", "yt-dlp"),
     "/usr/local/bin/yt-dlp",
     "/opt/homebrew/bin/yt-dlp",
 ]
@@ -65,6 +67,8 @@ FFMPEG_CANDIDATES = [
     os.path.join(BUNDLE_DIR, "ffmpeg"),
     os.path.join(SCRIPT_DIR, "ffmpeg"),
     os.path.join(SCRIPT_DIR, "ffmpeg_arm64" if platform.machine() == "arm64" else "ffmpeg_x64"),
+    os.path.join(SCRIPT_DIR, "engines", "ffmpeg_arm64" if platform.machine() == "arm64" else "ffmpeg_x64"),
+    os.path.join(SCRIPT_DIR, "engines", "ffmpeg"),
     "/usr/local/bin/ffmpeg",
     "/opt/homebrew/bin/ffmpeg",
 ]

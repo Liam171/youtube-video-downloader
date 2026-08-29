@@ -34,6 +34,14 @@ A desktop GUI for [yt-dlp](https://github.com/yt-dlp/yt-dlp), with separate laun
 2. Optionally add `ffmpeg.exe` for format merging.
 3. Double-click `启动图形下载器.bat`.
 
+## Repository layout
+
+```
+yt-dlp-gui.py        macOS GUI source        engines/   local yt-dlp / ffmpeg binaries
+yt-dlp-gui.ps1       Windows GUI source      release/   built .app and distribution zips
+build_app.sh         macOS packaging script  docs/      user manuals (CN)
+```
+
 ## Repository notes
 
 - `config.json` stores local preferences and is intentionally ignored by Git.
