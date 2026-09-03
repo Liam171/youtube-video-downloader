@@ -36,13 +36,20 @@ from PySide6.QtGui import QFont, QTextCursor
 # the .app itself may sit in read-only /Applications.
 if getattr(sys, "frozen", False):
     BUNDLE_DIR = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+else:
+    BUNDLE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Writable state (config, temp logs) must live outside the frozen bundle —
+# the app itself may sit in a read-only location.
+if sys.platform == "win32":
+    APP_SUPPORT = os.path.join(
+        os.environ.get("APPDATA", os.path.expanduser("~")), "YouTubeDownloader"
+    )
+else:
     APP_SUPPORT = os.path.join(
         os.path.expanduser("~/Library/Application Support"), "YouTubeDownloader"
     )
-    os.makedirs(APP_SUPPORT, exist_ok=True)
-else:
-    BUNDLE_DIR = os.path.dirname(os.path.abspath(__file__))
-    APP_SUPPORT = BUNDLE_DIR
+os.makedirs(APP_SUPPORT, exist_ok=True)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(APP_SUPPORT, "config.json")
@@ -50,10 +57,13 @@ CONFIG_PATH = os.path.join(APP_SUPPORT, "config.json")
 YTDLP_CANDIDATES = [
     os.path.join(BUNDLE_DIR, "yt-dlp"),
     os.path.join(BUNDLE_DIR, "yt-dlp_macos"),
+    os.path.join(BUNDLE_DIR, "yt-dlp.exe"),
     os.path.join(SCRIPT_DIR, "yt-dlp"),
     os.path.join(SCRIPT_DIR, "yt-dlp_macos"),
+    os.path.join(SCRIPT_DIR, "yt-dlp.exe"),
     os.path.join(SCRIPT_DIR, "engines", "yt-dlp_macos"),
     os.path.join(SCRIPT_DIR, "engines", "yt-dlp"),
+    os.path.join(SCRIPT_DIR, "engines", "yt-dlp.exe"),
     "/usr/local/bin/yt-dlp",
     "/opt/homebrew/bin/yt-dlp",
 ]
@@ -65,10 +75,13 @@ _BUNDLED_FFMPEG = os.path.join(
 FFMPEG_CANDIDATES = [
     _BUNDLED_FFMPEG,
     os.path.join(BUNDLE_DIR, "ffmpeg"),
+    os.path.join(BUNDLE_DIR, "ffmpeg.exe"),
     os.path.join(SCRIPT_DIR, "ffmpeg"),
+    os.path.join(SCRIPT_DIR, "ffmpeg.exe"),
     os.path.join(SCRIPT_DIR, "ffmpeg_arm64" if platform.machine() == "arm64" else "ffmpeg_x64"),
     os.path.join(SCRIPT_DIR, "engines", "ffmpeg_arm64" if platform.machine() == "arm64" else "ffmpeg_x64"),
     os.path.join(SCRIPT_DIR, "engines", "ffmpeg"),
+    os.path.join(SCRIPT_DIR, "engines", "ffmpeg.exe"),
     "/usr/local/bin/ffmpeg",
     "/opt/homebrew/bin/ffmpeg",
 ]
@@ -183,6 +196,18 @@ SUCCESS = "#3ECF8E"
 ERROR = "#F0616D"
 NEUTRAL = "#8B96A9"
 
+# Platform fonts — Qt resolves the first available face in each list.
+if sys.platform == "win32":
+    _SANS = ["Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei"]
+    _MONO = ["Consolas", "Cascadia Mono"]
+else:
+    _SANS = ["Avenir Next", "PingFang SC", "Helvetica Neue"]
+    _MONO = ["Menlo", "SF Mono", "PingFang SC"]
+
+# QSS font-family needs a literal list.
+_SANS_QSS = ", ".join(f"'{n}'" for n in _SANS)
+_MONO_QSS = ", ".join(f"'{n}'" for n in _MONO)
+
 QSS_CARD = f"""
     QFrame#card {{ background: {CARD}; border: 1px solid {BORDER}; border-radius: 12px; }}
 """
@@ -254,7 +279,7 @@ QSS_PROGRESS = f"""
 QSS_LOG = f"""
     QTextEdit {{
         background: #0A0E15; color: #7E93B4; border: none;
-        font-family: 'Menlo'; padding: 4px;
+        font-family: {_MONO_QSS}; padding: 4px;
     }}
     QScrollBar:vertical {{ background: transparent; width: 8px; margin: 2px; }}
     QScrollBar::handle:vertical {{ background: #2A3345; border-radius: 4px; min-height: 30px; }}
@@ -266,10 +291,7 @@ QSS_LOG = f"""
 
 def _font(size: int, weight: int = QFont.Normal, mono: bool = False) -> QFont:
     f = QFont()
-    f.setFamilies(
-        ["Menlo", "SF Mono", "PingFang SC"] if mono
-        else ["Avenir Next", "PingFang SC", "Helvetica Neue"]
-    )
+    f.setFamilies(_MONO if mono else _SANS)
     f.setPointSize(size)
     f.setWeight(weight)
     return f
@@ -1099,9 +1121,9 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")  # clean cross-platform look, better than macOS Aqua for this purpose
 
-    # Global font fallback (Avenir Next for Latin, PingFang SC for Chinese)
+    # Global font fallback (resolved per platform from the token lists)
     font = QFont()
-    font.setFamilies(["Avenir Next", "PingFang SC", "Helvetica Neue"])
+    font.setFamilies(_SANS)
     font.setPointSize(13)
     app.setFont(font)
 
