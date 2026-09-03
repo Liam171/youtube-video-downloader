@@ -48,6 +48,14 @@ build_app.sh         macOS packaging script  docs/      user manuals (CN)
 - Download engines, Python caches, temporary files, and `dist/` release artifacts are ignored.
 - Use GitHub Releases for packaged application downloads instead of committing large binaries.
 
+## Packaging (Windows)
+
+A single-file `YouTube下载器.exe` (yt-dlp + ffmpeg bundled) is built in the cloud via GitHub Actions — no Windows machine needed:
+
+```bash
+gh workflow run build-windows.yml    # then download the artifact
+```
+
 ## Packaging (macOS)
 
 Build a standalone `YouTube视频下载器.app` that bundles the Python runtime, yt-dlp and ffmpeg — nothing needs to be installed on the target Mac (Apple Silicon):
